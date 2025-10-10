@@ -10,10 +10,6 @@ import os
 import requests, certifi, traceback
 import pickle
 import numpy as np
-import torch
-import torch.nn as nn
-from torchvision.transforms.functional import to_tensor
-from PIL import Image
 import os
 
 
@@ -891,6 +887,11 @@ supplement_df = pd.read_csv('assets/supplement_info.csv').fillna('')
 # --- Flask endpoint ---
 @app.route("/aisubmit", methods=["POST"])
 def aisubmit():
+    import torch
+    import torch.nn as nn
+    from torchvision.transforms.functional import to_tensor
+    from PIL import Image
+
     if "image" not in request.files:
         return jsonify({"error": "No image"}), 400
 
