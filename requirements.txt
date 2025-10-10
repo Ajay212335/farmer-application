@@ -1,0 +1,15 @@
+Flask
+flask-cors
+pymongo
+bcrypt
+pandas
+numpy
+torch
+torchvision
+Pillow
+requests
+certifi
+pyjwt
+python-dotenv
+scikit-learn
+gunicorn
