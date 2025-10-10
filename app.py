@@ -782,9 +782,15 @@ def chat():
     return jsonify({"reply": reply, "model_used": MODEL_ID})
 
 
-model_path = 'crop_recommendation_model.pkl'
-with open(model_path, 'rb') as f:
-    model = pickle.load(f)
+# model_path = 'crop_recommendation_model.pkl'
+# with open(model_path, 'rb') as f:
+#     model = pickle.load(f)
+
+def get_crop_model():
+    global crop_model
+    if "crop_model" not in globals():
+        crop_model = pickle.load(open("crop_recommendation_model.pkl", "rb"))
+    return crop_model
 
 @app.route('/predict', methods=['POST'])
 def predict_crop():
@@ -800,7 +806,7 @@ def predict_crop():
         rainfall = float(data['rainfall'])
         
         features = np.array([[N, P, K, temperature, humidity, ph, rainfall]])
-        prediction = model.predict(features)
+        prediction = crop_model.predict(features)
         
         return jsonify({'predicted_crop': prediction[0]})
     except Exception as e:
