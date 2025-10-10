@@ -1,4 +1,4 @@
-from turtle import pd
+import pandas as pd
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pymongo import MongoClient
