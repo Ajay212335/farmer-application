@@ -281,36 +281,6 @@ def login():
     except Exception as e:
         return jsonify({"message": "Error logging in", "error": str(e)}), 500
 
-# ----------------- Token decorator -----------------
-# def token_required(f):
-#     @wraps(f)
-#     def decorated(*args, **kwargs):
-#         token = None
-#         if 'Authorization' in request.headers:
-#             auth_header = request.headers.get('Authorization')
-#             if auth_header and auth_header.startswith("Bearer "):
-#                 token = auth_header.split(" ")[1]
-
-#         if not token:
-#             return jsonify({"message": "Token is missing!"}), 401
-
-#         try:
-#             data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-#             current_user = users_collection.find_one({
-#                 "email": data.get("email"),
-#                 "user_type": data.get("user_type")  # Match user_type from token
-#             })
-#             if not current_user:
-#                 return jsonify({"message": "User not found"}), 401
-#             kwargs['current_user'] = current_user
-#         except jwt.ExpiredSignatureError:
-#             return jsonify({"message": "Token expired"}), 401
-#         except Exception as e:
-#             return jsonify({"message": "Token is invalid", "error": str(e)}), 401
-
-#         return f(*args, **kwargs)
-#     return decorated
-
 
 # ----------------- Add Work -----------------
 @app.route('/add-work', methods=['POST'])
