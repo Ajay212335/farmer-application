@@ -5,13 +5,11 @@ from pymongo import MongoClient
 import bcrypt, random, smtplib, ssl, datetime, jwt, re, threading, time
 from functools import wraps
 from bson.objectid import ObjectId
-import pandas as pd
 import os
 import requests, certifi, traceback
 import pickle
 import numpy as np
-import os
-import torch
+
 import torch.nn as nn
 
 
@@ -791,6 +789,7 @@ def get_crop_model():
 
 @app.route('/predict', methods=['POST'])
 def predict_crop():
+    import torch
     try:
         data = request.json
         # Extract features from request
