@@ -836,6 +836,9 @@ def predict_crop():
     import torch
     import torch.nn as nn
 #dsease
+import torch
+import torch.nn as nn
+
 class PlantDiseaseModel(nn.Module):
     def __init__(self, num_classes=39):  # 39 instead of 38
         super().__init__()
