@@ -7,6 +7,7 @@ from functools import wraps
 from bson.objectid import ObjectId
 import os
 import requests, certifi, traceback
+import pickle
 
 app = Flask(__name__)
 CORS(app)
