@@ -8,10 +8,7 @@ from bson.objectid import ObjectId
 import os
 import requests, certifi, traceback
 import pickle
-import numpy as np
-import torch
-import torch.nn as nn
-from torchvision.transforms.functional import to_tensor
+
 from PIL import Image
 
 app = Flask(__name__)
@@ -814,6 +811,10 @@ with open(model_path, 'rb') as f:
 
 @app.route('/predict', methods=['POST'])
 def predict_crop():
+    import numpy as np
+    import torch
+    import torch.nn as nn
+    from torchvision.transforms.functional import to_tensor
     try:
         data = request.json
         # Extract features from request
