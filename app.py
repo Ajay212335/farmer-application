@@ -1,16 +1,21 @@
-import pandas as pd
+from turtle import pd
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pymongo import MongoClient
 import bcrypt, random, smtplib, ssl, datetime, jwt, re, threading, time
 from functools import wraps
 from bson.objectid import ObjectId
+import pandas as pd
 import os
 import requests, certifi, traceback
 import pickle
 import numpy as np
-
+import torch
 import torch.nn as nn
+from torchvision.transforms.functional import to_tensor
+from PIL import Image
+import os
+
 
 
 app = Flask(__name__)
@@ -275,6 +280,36 @@ def login():
 
     except Exception as e:
         return jsonify({"message": "Error logging in", "error": str(e)}), 500
+
+# ----------------- Token decorator -----------------
+# def token_required(f):
+#     @wraps(f)
+#     def decorated(*args, **kwargs):
+#         token = None
+#         if 'Authorization' in request.headers:
+#             auth_header = request.headers.get('Authorization')
+#             if auth_header and auth_header.startswith("Bearer "):
+#                 token = auth_header.split(" ")[1]
+
+#         if not token:
+#             return jsonify({"message": "Token is missing!"}), 401
+
+#         try:
+#             data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+#             current_user = users_collection.find_one({
+#                 "email": data.get("email"),
+#                 "user_type": data.get("user_type")  # Match user_type from token
+#             })
+#             if not current_user:
+#                 return jsonify({"message": "User not found"}), 401
+#             kwargs['current_user'] = current_user
+#         except jwt.ExpiredSignatureError:
+#             return jsonify({"message": "Token expired"}), 401
+#         except Exception as e:
+#             return jsonify({"message": "Token is invalid", "error": str(e)}), 401
+
+#         return f(*args, **kwargs)
+#     return decorated
 
 
 # ----------------- Add Work -----------------
@@ -777,19 +812,12 @@ def chat():
     return jsonify({"reply": reply, "model_used": MODEL_ID})
 
 
-# model_path = 'crop_recommendation_model.pkl'
-# with open(model_path, 'rb') as f:
-#     model = pickle.load(f)
-
-def get_crop_model():
-    global crop_model
-    if "crop_model" not in globals():
-        crop_model = pickle.load(open("crop_recommendation_model.pkl", "rb"))
-    return crop_model
+model_path = 'crop_recommendation_model.pkl'
+with open(model_path, 'rb') as f:
+    model = pickle.load(f)
 
 @app.route('/predict', methods=['POST'])
 def predict_crop():
-    import torch
     try:
         data = request.json
         # Extract features from request
@@ -802,13 +830,14 @@ def predict_crop():
         rainfall = float(data['rainfall'])
         
         features = np.array([[N, P, K, temperature, humidity, ph, rainfall]])
-        prediction = crop_model.predict(features)
+        prediction = model.predict(features)
         
         return jsonify({'predicted_crop': prediction[0]})
     except Exception as e:
         return jsonify({'error': str(e)})
     
-
+    import torch
+    import torch.nn as nn
 #dsease
 class PlantDiseaseModel(nn.Module):
     def __init__(self, num_classes=39):  # 39 instead of 38
@@ -887,9 +916,6 @@ supplement_df = pd.read_csv('assets/supplement_info.csv').fillna('')
 # --- Flask endpoint ---
 @app.route("/aisubmit", methods=["POST"])
 def aisubmit():
-    from torchvision.transforms.functional import to_tensor
-    from PIL import Image
-
     if "image" not in request.files:
         return jsonify({"error": "No image"}), 400
 
@@ -919,8 +945,8 @@ def aisubmit():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-
