@@ -1,4 +1,4 @@
-import pandas as pd
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pymongo import MongoClient
@@ -7,9 +7,6 @@ from functools import wraps
 from bson.objectid import ObjectId
 import os
 import requests, certifi, traceback
-import pickle
-
-from PIL import Image
 
 app = Flask(__name__)
 CORS(app)
