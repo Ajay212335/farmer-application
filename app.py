@@ -1,11 +1,10 @@
-from turtle import pd
+import pandas as pd
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pymongo import MongoClient
 import bcrypt, random, smtplib, ssl, datetime, jwt, re, threading, time
 from functools import wraps
 from bson.objectid import ObjectId
-import pandas as pd
 import os
 import requests, certifi, traceback
 import pickle
@@ -14,9 +13,6 @@ import torch
 import torch.nn as nn
 from torchvision.transforms.functional import to_tensor
 from PIL import Image
-import os
-
-
 
 app = Flask(__name__)
 CORS(app)
