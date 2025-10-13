@@ -7,7 +7,7 @@ from functools import wraps
 from bson.objectid import ObjectId
 import os
 import requests
-
+from dotenv import load_dotenv
 
 app = Flask(__name__)
 CORS(app)
@@ -690,7 +690,7 @@ def get_products():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 MODEL_ID = "mistralai/mistral-nemo"
 
