@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 app = Flask(__name__)
 CORS(app)
-
+load_dotenv()
 # ----------------- MongoDB Connection -----------------
 client = MongoClient("mongodb+srv://ddarn3681:eyl349H2RkqaraZb@cluster0.ezhvpef.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 db = client["appfarmer"]
