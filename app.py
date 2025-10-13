@@ -787,16 +787,61 @@ def predict_crop():
     except Exception as e:
         return jsonify({'error': str(e)})
 
+# Global model reference (but do NOT load it yet)
+disease_model = None
+
 @app.route("/aisubmit", methods=["POST"])
 def aisubmit():
     try:
-
         from PIL import Image
         import torch
         import torch.nn as nn
+        from torchvision.transforms.functional import to_tensor
+        import csv
+
+        global disease_model
+
+        # Lazy-load model (only once)
+        if disease_model is None:
+            class PlantDiseaseModel(nn.Module):
+                def __init__(self, num_classes=39):
+                    super().__init__()
+                    self.conv_layers = nn.Sequential(
+                        nn.Conv2d(3, 32, 3, padding=1), nn.ReLU(), nn.BatchNorm2d(32),
+                        nn.Conv2d(32, 32, 3, padding=1), nn.ReLU(), nn.BatchNorm2d(32),
+                        nn.MaxPool2d(2,2),
+                        nn.Conv2d(32,64,3,padding=1), nn.ReLU(), nn.BatchNorm2d(64),
+                        nn.Conv2d(64,64,3,padding=1), nn.ReLU(), nn.BatchNorm2d(64),
+                        nn.MaxPool2d(2,2),
+                        nn.Conv2d(64,128,3,padding=1), nn.ReLU(), nn.BatchNorm2d(128),
+                        nn.Conv2d(128,128,3,padding=1), nn.ReLU(), nn.BatchNorm2d(128),
+                        nn.MaxPool2d(2,2),
+                        nn.Conv2d(128,256,3,padding=1), nn.ReLU(), nn.BatchNorm2d(256),
+                        nn.Conv2d(256,256,3,padding=1), nn.ReLU(), nn.BatchNorm2d(256),
+                        nn.MaxPool2d(2,2),
+                    )
+                    self.dense_layers = nn.Sequential(
+                        nn.Flatten(),
+                        nn.Linear(256*14*14,1024),
+                        nn.ReLU(),
+                        nn.Dropout(0.5),
+                        nn.Linear(1024,num_classes)
+                    )
+
+                def forward(self,x):
+                    x = self.conv_layers(x)
+                    x = self.dense_layers(x)
+                    return x
+
+            device = torch.device("cpu")  # force CPU to avoid GPU crash
+            disease_model = PlantDiseaseModel()
+            disease_model.load_state_dict(torch.load("plant_disease_model_1_latest.pt", map_location=device))
+            disease_model.to(device)
+            disease_model.eval()
 
         if "image" not in request.files:
             return jsonify({"error": "No image"}), 400
+
         image = request.files["image"]
         if not image.filename:
             return jsonify({"error": "No file selected"}), 400
@@ -805,81 +850,36 @@ def aisubmit():
         path = os.path.join("uploads", image.filename)
         image.save(path)
 
-        class PlantDiseaseModel(nn.Module):
-            def __init__(self, num_classes=39):
-                super().__init__()
-                self.conv_layers = nn.Sequential(
-                    nn.Conv2d(3, 32, 3, padding=1), nn.ReLU(), nn.BatchNorm2d(32),
-                    nn.Conv2d(32, 32, 3, padding=1), nn.ReLU(), nn.BatchNorm2d(32),
-                    nn.MaxPool2d(2,2),
-                    nn.Conv2d(32,64,3,padding=1), nn.ReLU(), nn.BatchNorm2d(64),
-                    nn.Conv2d(64,64,3,padding=1), nn.ReLU(), nn.BatchNorm2d(64),
-                    nn.MaxPool2d(2,2),
-                    nn.Conv2d(64,128,3,padding=1), nn.ReLU(), nn.BatchNorm2d(128),
-                    nn.Conv2d(128,128,3,padding=1), nn.ReLU(), nn.BatchNorm2d(128),
-                    nn.MaxPool2d(2,2),
-                    nn.Conv2d(128,256,3,padding=1), nn.ReLU(), nn.BatchNorm2d(256),
-                    nn.Conv2d(256,256,3,padding=1), nn.ReLU(), nn.BatchNorm2d(256),
-                    nn.MaxPool2d(2,2),
-                )
-                self.dense_layers = nn.Sequential(
-                    nn.Flatten(),
-                    nn.Linear(256*14*14,1024),
-                    nn.ReLU(),
-                    nn.Dropout(0.5),
-                    nn.Linear(1024,num_classes)
-                )
-
-            def forward(self,x):
-                x = self.conv_layers(x)
-                x = self.dense_layers(x)
-                return x
-
-        # Load model
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        disease_model = PlantDiseaseModel(num_classes=39)
-        disease_model.load_state_dict(torch.load("plant_disease_model_1_latest.pt", map_location=device))
-        disease_model.to(device)
-        disease_model.eval()
-
-        # ✅ Manual tensor conversion (NO torchvision)
-        def image_to_tensor(image_path):
-            image = Image.open(image_path).convert("RGB").resize((224, 224))
-            data = list(image.getdata())  # Flatten RGB
-            tensor = torch.tensor(data, dtype=torch.float32).view(1, 224, 224, 3)
-            tensor = tensor.permute(0, 3, 1, 2) / 255.0  # Shape [1,3,224,224]
-            return tensor.to(device)
-
         def predict_disease(image_path):
-            tensor = image_to_tensor(image_path)
+            image = Image.open(image_path).convert("RGB").resize((224,224))
+            tensor = to_tensor(image).unsqueeze(0)
             with torch.inference_mode():
                 output = disease_model(tensor)
                 return int(output.argmax().item())
 
         idx = predict_disease(path)
 
-        disease_df = pd.read_csv('assets/disease_info.csv').fillna('')
-        supplement_df = pd.read_csv('assets/supplement_info.csv').fillna('')
+        # Read disease and supplement info without pandas
+        with open('assets/disease_info.csv', encoding='utf-8') as f:
+            disease_row = list(csv.DictReader(f))[idx]
 
-        disease_data = disease_df.iloc[idx]
-        supplement_data = supplement_df.iloc[idx]
-
-        del disease_model, disease_df, supplement_df
-        torch.cuda.empty_cache()
+        with open('assets/supplement_info.csv', encoding='utf-8') as f:
+            supplement_row = list(csv.DictReader(f))[idx]
 
         return jsonify({
             "pred": idx,
-            "disease_name": disease_data.get("disease_name", ""),
-            "description": disease_data.get("description", ""),
-            "preventive_steps": disease_data.get("Possible Steps", ""),
-            "disease_image": disease_data.get("image_url", ""),
-            "supplement_name": supplement_data.get("supplement name", ""),
-            "supplement_image": supplement_data.get("supplement image", ""),
-            "buy_link": supplement_data.get("buy link", "")
+            "disease_name": disease_row.get("disease_name", ""),
+            "description": disease_row.get("description", ""),
+            "preventive_steps": disease_row.get("Possible Steps", ""),
+            "disease_image": disease_row.get("image_url", ""),
+            "supplement_name": supplement_row.get("supplement name", ""),
+            "supplement_image": supplement_row.get("supplement image", ""),
+            "buy_link": supplement_row.get("buy link", "")
         })
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 
 if __name__ == "__main__":
