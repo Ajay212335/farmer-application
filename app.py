@@ -1,4 +1,4 @@
-
+import pandas as pd
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pymongo import MongoClient
@@ -6,8 +6,8 @@ import bcrypt, random, smtplib, ssl, datetime, jwt, re, threading, time
 from functools import wraps
 from bson.objectid import ObjectId
 import os
-import requests, certifi, traceback
-import pickle
+import requests
+
 
 app = Flask(__name__)
 CORS(app)
@@ -271,36 +271,6 @@ def login():
 
     except Exception as e:
         return jsonify({"message": "Error logging in", "error": str(e)}), 500
-
-# ----------------- Token decorator -----------------
-# def token_required(f):
-#     @wraps(f)
-#     def decorated(*args, **kwargs):
-#         token = None
-#         if 'Authorization' in request.headers:
-#             auth_header = request.headers.get('Authorization')
-#             if auth_header and auth_header.startswith("Bearer "):
-#                 token = auth_header.split(" ")[1]
-
-#         if not token:
-#             return jsonify({"message": "Token is missing!"}), 401
-
-#         try:
-#             data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-#             current_user = users_collection.find_one({
-#                 "email": data.get("email"),
-#                 "user_type": data.get("user_type")  # Match user_type from token
-#             })
-#             if not current_user:
-#                 return jsonify({"message": "User not found"}), 401
-#             kwargs['current_user'] = current_user
-#         except jwt.ExpiredSignatureError:
-#             return jsonify({"message": "Token expired"}), 401
-#         except Exception as e:
-#             return jsonify({"message": "Token is invalid", "error": str(e)}), 401
-
-#         return f(*args, **kwargs)
-#     return decorated
 
 
 # ----------------- Add Work -----------------
@@ -615,9 +585,6 @@ def add_to_cart(current_user):
     return jsonify({"message": "Added to cart successfully"}), 201
 
 
-# Save cart for a buyer
-
-
 # Get cart
 @app.route('/get-cart', methods=['GET'])
 @token_required
@@ -700,17 +667,14 @@ def buy_cart(current_user):
 @app.route('/products', methods=['GET'])
 def get_products():
     try:
-        # Make sure this path points to your CSV file
         csv_path = os.path.join('assets', 'supplement_info.csv')
 
         if not os.path.exists(csv_path):
             return jsonify({'error': 'CSV file not found'}), 404
 
-        # Read CSV
         df = pd.read_csv(csv_path)
         df = df.fillna('')  # Replace NaN with empty strings
 
-        # Convert to list of dicts
         products = []
         for index, row in df.iterrows():
             products.append({
@@ -726,9 +690,8 @@ def get_products():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = "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"
 
-# Best model for agriculture chatbot
 MODEL_ID = "mistralai/mistral-nemo"
 
 
@@ -802,133 +765,102 @@ def chat():
     reply = call_farmer_chatbot(user_message)
     return jsonify({"reply": reply, "model_used": MODEL_ID})
 
-
-model_path = 'crop_recommendation_model.pkl'
-with open(model_path, 'rb') as f:
-    model = pickle.load(f)
-
 @app.route('/predict', methods=['POST'])
 def predict_crop():
-    import numpy as np
-    import torch
-    import torch.nn as nn
-    from torchvision.transforms.functional import to_tensor
     try:
+        import pickle
+        import numpy as np
+
+        # Lazy-load the model
+        model_path = 'crop_recommendation_model.pkl'
+        with open(model_path, 'rb') as f:
+            model = pickle.load(f)
+
         data = request.json
-        # Extract features from request
-        N = float(data['N'])
-        P = float(data['P'])
-        K = float(data['K'])
-        temperature = float(data['temperature'])
-        humidity = float(data['humidity'])
-        ph = float(data['ph'])
-        rainfall = float(data['rainfall'])
-        
-        features = np.array([[N, P, K, temperature, humidity, ph, rainfall]])
+        features = np.array([[float(data[k]) for k in ['N','P','K','temperature','humidity','ph','rainfall']]])
         prediction = model.predict(features)
-        
+
+        # Clean memory
+        del model
         return jsonify({'predicted_crop': prediction[0]})
+
     except Exception as e:
         return jsonify({'error': str(e)})
-    
-    import torch
-    import torch.nn as nn
-#dsease
-import torch
-import torch.nn as nn
 
-class PlantDiseaseModel(nn.Module):
-    def __init__(self, num_classes=39):  # 39 instead of 38
-        super().__init__()
-        self.conv_layers = nn.Sequential(
-            nn.Conv2d(3, 32, 3, padding=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(32),
-            nn.Conv2d(32, 32, 3, padding=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(32),
-            nn.MaxPool2d(2, 2),
-
-            nn.Conv2d(32, 64, 3, padding=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(64),
-            nn.Conv2d(64, 64, 3, padding=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(64),
-            nn.MaxPool2d(2, 2),
-
-            nn.Conv2d(64, 128, 3, padding=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(128),
-            nn.Conv2d(128, 128, 3, padding=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(128),
-            nn.MaxPool2d(2, 2),
-
-            nn.Conv2d(128, 256, 3, padding=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(256),
-            nn.Conv2d(256, 256, 3, padding=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(256),
-            nn.MaxPool2d(2, 2),
-        )
-
-        # Dense layers now match your saved weights
-        self.dense_layers = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(256 * 14 * 14, 1024),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(1024, num_classes)  # Directly output 39 classes
-        )
-
-    def forward(self, x):
-        x = self.conv_layers(x)
-        x = self.dense_layers(x)
-        return x
-
-
-# --- Model setup ---
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-disease_model = PlantDiseaseModel(num_classes=39)
-disease_model.load_state_dict(torch.load("plant_disease_model_1_latest.pt", map_location=device))
-disease_model.to(device)
-disease_model.eval()
-
-
-# --- Predict function ---
-def predict_disease(image_path):
-    image = Image.open(image_path).convert("RGB").resize((224, 224))
-    tensor = to_tensor(image).unsqueeze(0).to(device)
-    with torch.inference_mode():
-        output = disease_model(tensor)
-        return int(output.cpu().numpy().argmax())
-
-
-# --- Load CSVs ---
-disease_df = pd.read_csv('assets/disease_info.csv').fillna('')
-supplement_df = pd.read_csv('assets/supplement_info.csv').fillna('')
-
-
-# --- Flask endpoint ---
+# ----------------- Plant Disease Prediction -----------------
 @app.route("/aisubmit", methods=["POST"])
 def aisubmit():
-    if "image" not in request.files:
-        return jsonify({"error": "No image"}), 400
-
-    image = request.files["image"]
-    if not image.filename:
-        return jsonify({"error": "No file selected"}), 400
-
-    os.makedirs("uploads", exist_ok=True)
-    path = os.path.join("uploads", image.filename)
-    image.save(path)
-
     try:
+        import pandas as pd
+        from PIL import Image
+        import torch
+        import torch.nn as nn
+        from torchvision.transforms.functional import to_tensor
+
+        if "image" not in request.files:
+            return jsonify({"error": "No image"}), 400
+        image = request.files["image"]
+        if not image.filename:
+            return jsonify({"error": "No file selected"}), 400
+
+        os.makedirs("uploads", exist_ok=True)
+        path = os.path.join("uploads", image.filename)
+        image.save(path)
+
+        class PlantDiseaseModel(nn.Module):
+            def __init__(self, num_classes=39):
+                super().__init__()
+                self.conv_layers = nn.Sequential(
+                    nn.Conv2d(3, 32, 3, padding=1), nn.ReLU(), nn.BatchNorm2d(32),
+                    nn.Conv2d(32, 32, 3, padding=1), nn.ReLU(), nn.BatchNorm2d(32),
+                    nn.MaxPool2d(2,2),
+                    nn.Conv2d(32,64,3,padding=1), nn.ReLU(), nn.BatchNorm2d(64),
+                    nn.Conv2d(64,64,3,padding=1), nn.ReLU(), nn.BatchNorm2d(64),
+                    nn.MaxPool2d(2,2),
+                    nn.Conv2d(64,128,3,padding=1), nn.ReLU(), nn.BatchNorm2d(128),
+                    nn.Conv2d(128,128,3,padding=1), nn.ReLU(), nn.BatchNorm2d(128),
+                    nn.MaxPool2d(2,2),
+                    nn.Conv2d(128,256,3,padding=1), nn.ReLU(), nn.BatchNorm2d(256),
+                    nn.Conv2d(256,256,3,padding=1), nn.ReLU(), nn.BatchNorm2d(256),
+                    nn.MaxPool2d(2,2),
+                )
+                self.dense_layers = nn.Sequential(
+                    nn.Flatten(),
+                    nn.Linear(256*14*14,1024),
+                    nn.ReLU(),
+                    nn.Dropout(0.5),
+                    nn.Linear(1024,num_classes)
+                )
+
+            def forward(self,x):
+                x = self.conv_layers(x)
+                x = self.dense_layers(x)
+                return x
+
+        # Load model
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        disease_model = PlantDiseaseModel(num_classes=39)
+        disease_model.load_state_dict(torch.load("plant_disease_model_1_latest.pt", map_location=device))
+        disease_model.to(device)
+        disease_model.eval()
+
+        def predict_disease(image_path):
+            image = Image.open(image_path).convert("RGB").resize((224,224))
+            tensor = to_tensor(image).unsqueeze(0).to(device)
+            with torch.inference_mode():
+                output = disease_model(tensor)
+                return int(output.cpu().numpy().argmax())
+
         idx = predict_disease(path)
+
+        disease_df = pd.read_csv('assets/disease_info.csv').fillna('')
+        supplement_df = pd.read_csv('assets/supplement_info.csv').fillna('')
+
         disease_data = disease_df.iloc[idx]
         supplement_data = supplement_df.iloc[idx]
+
+        del disease_model, disease_df, supplement_df
+        torch.cuda.empty_cache()
 
         return jsonify({
             "pred": idx,
@@ -940,10 +872,10 @@ def aisubmit():
             "supplement_image": supplement_data.get("supplement image", ""),
             "buy_link": supplement_data.get("buy link", "")
         })
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 5001))
     app.run(host="0.0.0.0", port=port)
