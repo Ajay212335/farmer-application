@@ -787,15 +787,13 @@ def predict_crop():
     except Exception as e:
         return jsonify({'error': str(e)})
 
-# ----------------- Plant Disease Prediction -----------------
 @app.route("/aisubmit", methods=["POST"])
 def aisubmit():
     try:
-        import pandas as pd
+
         from PIL import Image
         import torch
         import torch.nn as nn
-        from torchvision.transforms.functional import to_tensor
 
         if "image" not in request.files:
             return jsonify({"error": "No image"}), 400
@@ -844,12 +842,19 @@ def aisubmit():
         disease_model.to(device)
         disease_model.eval()
 
+        # ✅ Manual tensor conversion (NO torchvision)
+        def image_to_tensor(image_path):
+            image = Image.open(image_path).convert("RGB").resize((224, 224))
+            data = list(image.getdata())  # Flatten RGB
+            tensor = torch.tensor(data, dtype=torch.float32).view(1, 224, 224, 3)
+            tensor = tensor.permute(0, 3, 1, 2) / 255.0  # Shape [1,3,224,224]
+            return tensor.to(device)
+
         def predict_disease(image_path):
-            image = Image.open(image_path).convert("RGB").resize((224,224))
-            tensor = to_tensor(image).unsqueeze(0).to(device)
+            tensor = image_to_tensor(image_path)
             with torch.inference_mode():
                 output = disease_model(tensor)
-                return int(output.cpu().numpy().argmax())
+                return int(output.argmax().item())
 
         idx = predict_disease(path)
 
@@ -875,6 +880,7 @@ def aisubmit():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5001))
