@@ -13,3 +13,4 @@ pyjwt
 python-dotenv
 scikit-learn==1.6.1
 gunicorn
+base64
