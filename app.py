@@ -466,6 +466,7 @@ def get_profile(current_user):
     except Exception as e:
         return jsonify({"message": "Error fetching profile", "error": str(e)}), 500
 
+
 # ----------------- Add Product -----------------
 @app.route('/add-product', methods=['POST'])
 @token_required
