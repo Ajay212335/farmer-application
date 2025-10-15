@@ -121,14 +121,7 @@ def token_required(f):
 @app.route('/register', methods=['POST'])
 def register():
     try:
-        # --- Step 1: Safely parse incoming data ---
-        data = request.get_json(silent=True)
-        print("📩 Incoming Register Data:", data)
-
-        if not data:
-            return jsonify({"message": "Invalid or missing JSON in request"}), 400
-
-        # --- Step 2: Extract fields ---
+        data = request.get_json(force=True)
         full_name = data.get('full_name')
         username = data.get('username')
         email = data.get('email')
@@ -136,26 +129,24 @@ def register():
         phone_number = data.get('phone_number')
         user_type = data.get('user_type')
 
-        # --- Step 3: Validate inputs ---
-        missing_fields = [f for f in ['full_name', 'username', 'email', 'password', 'phone_number', 'user_type'] if not data.get(f)]
-        if missing_fields:
-            return jsonify({"message": f"Missing fields: {', '.join(missing_fields)}"}), 400
+        # --- Validation ---
+        if not all([full_name, username, email, password, phone_number, user_type]):
+            return jsonify({"message": "All fields are required"}), 400
 
-        # --- Step 4: Validate email format ---
-        if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+        if not is_valid_email(email):
             return jsonify({"message": "Invalid email format"}), 400
 
-        # --- Step 5: Check existing user ---
-        existing = users_collection.find_one({"email": email, "user_type": user_type})
-        if existing:
+        if users_collection.find_one({"email": email, "user_type": user_type}):
             return jsonify({"message": "User already exists"}), 400
 
-        # --- Step 6: Hash password & create OTP ---
-        hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        # --- Password Hashing ---
+        hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+        # --- Generate OTP ---
         otp = str(random.randint(100000, 999999))
         expiry = datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
 
-        # --- Step 7: Insert user record ---
+        # --- Insert into DB ---
         users_collection.insert_one({
             "full_name": full_name,
             "username": username,
@@ -169,22 +160,22 @@ def register():
             "created_at": datetime.datetime.utcnow()
         })
 
-        # --- Step 8: Send OTP Email ---
-        try:
-            sent = send_email(email, otp)
-            if sent:
-                print(f"✅ OTP sent to {email}")
-                return jsonify({"message": "OTP sent to email. Please verify."}), 201
-            else:
-                print(f"⚠️ Failed to send OTP to {email}")
-                return jsonify({"message": "User registered but failed to send OTP"}), 500
-        except Exception as mail_error:
-            print("📧 Email send error:", str(mail_error))
-            return jsonify({"message": "User created but failed to send OTP", "error": str(mail_error)}), 500
+        # --- Send OTP ---
+        email_sent = send_email(email, otp)
+
+        if email_sent:
+            print(f"✅ OTP sent successfully to {email}")
+            return jsonify({"message": "OTP sent to email. Please verify."}), 201
+        else:
+            print(f"⚠️ Failed to send OTP to {email}")
+            return jsonify({"message": "User registered but failed to send OTP"}), 500
 
     except Exception as e:
-        print("❌ Register API Error:", str(e))
-        return jsonify({"message": "Server error during registration", "error": str(e)}), 500
+        print("❌ REGISTER ERROR:", str(e))
+        return jsonify({
+            "message": "Error registering user",
+            "error": str(e)
+        }), 500
 
 
 # ----------------- Verify OTP -----------------
