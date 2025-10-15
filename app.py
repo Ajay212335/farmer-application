@@ -8,6 +8,7 @@ from bson.objectid import ObjectId
 import os
 import requests
 from dotenv import load_dotenv
+import base64
 
 app = Flask(__name__)
 CORS(app)
@@ -478,10 +479,10 @@ def add_product(current_user):
         phone = data.get('phone')
         bank_account = data.get('bank_account')
         location = data.get('location')
-        image_url = data.get('image_url')
+        image_base64 = data.get('image_base64')  # ✅ Base64 instead of image_url
 
-        if not all([product_name, description, price, email, phone, bank_account, location]):
-            return jsonify({"message": "All fields are required"}), 400
+        if not all([product_name, description, price, email, phone, bank_account, location, image_base64]):
+            return jsonify({"message": "All fields (including image) are required"}), 400
 
         db.products.insert_one({
             "product_name": product_name,
@@ -491,7 +492,7 @@ def add_product(current_user):
             "phone": phone,
             "bank_account": bank_account,
             "location": location,
-            "image_url": image_url,
+            "image_base64": image_base64,  # ✅ Store Base64 directly
             "owner_email": current_user.get("email"),
             "created_at": datetime.datetime.utcnow()
         })
@@ -500,6 +501,7 @@ def add_product(current_user):
 
     except Exception as e:
         return jsonify({"message": "Error adding product", "error": str(e)}), 500
+
 
 @app.route('/my-products', methods=['GET'])
 @token_required
