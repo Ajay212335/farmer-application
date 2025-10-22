@@ -27,7 +27,7 @@ def send_email(receiver_email, otp):
         smtp_server = "smtp.gmail.com"
         port = 465
         sender_email = "ajaiks2005@gmail.com"
-        password = "ontj obmr ggeu kxeg"  
+        password = "potk gaej ywdb szrr"  
 
         message = f"""\
 Subject: Your OTP Code
