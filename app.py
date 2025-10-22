@@ -27,7 +27,7 @@ def send_email(receiver_email, otp):
         smtp_server = "smtp.gmail.com"
         port = 465
         sender_email = "ajaiks2005@gmail.com"
-        password = "potk gaej ywdb szrr"  
+        password = "ontj obmr ggeu kxeg"  
 
         message = f"""\
 Subject: Your OTP Code
@@ -898,6 +898,7 @@ def aisubmit():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 
 if __name__ == "__main__":
